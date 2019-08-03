@@ -97,7 +97,7 @@ This parameter list appears before the regular parameters.
 It starts with the keyword `type`, and lists type parameters.
 
 ```Go
-func Print(type T)(s []T) {
+func Print@<type T>(s []T) {
 	// same as above
 }
 ```
@@ -113,7 +113,7 @@ separate list of arguments.
 At the call site, the `type` keyword is not required.
 
 ```Go
-	Print(int)([]int{1, 2, 3})
+    Print@<int>([]int{1, 2, 3})
 ```
 
 ### Type contracts
@@ -124,7 +124,7 @@ Let's turn it into a function that converts a slice of any type into a
 
 ```Go
 // This function is INVALID.
-func Stringify(type T)(s []T) (ret []string) {
+func Stringify<@type T>(s []T) (ret []string) {
 	for _, v := range s {
 		ret = append(ret, v.String()) // INVALID
 	}
@@ -192,7 +192,7 @@ arguments and returns a value of type `string`.
 We write that like this:
 
 ```Go
-contract stringer(T) {
+contract stringer@<T> {
 	T String() string
 }
 ```
@@ -259,7 +259,7 @@ This is done by naming the contract at the end of the list of type
 parameters.
 
 ```Go
-func Stringify(type T stringer)(s []T) (ret []string) {
+func Stringify@<type T stringer>(s []T) (ret []string) {
 	for _, v := range s {
 		ret = append(ret, v.String()) // now valid
 	}
@@ -282,13 +282,13 @@ Although the examples we've seen so far use only a single type
 parameter, functions may have multiple type parameters.
 
 ```Go
-func Print2(type T1, T2)(s1 []T1, s2 []T2) { ... }
+func Print2@<type T1, T2>(s1 []T1, s2 []T2) { ... }
 ```
 
 Compare this to
 
 ```Go
-func Print2Same(type T1)(s1 []T1, s2 []T1) { ... }
+func Print2Same@<type T1>(s1 []T1, s2 []T1) { ... }
 ```
 
 In `Print2` `s1` and `s2` may be slices of different types.
@@ -299,12 +299,12 @@ Although functions may have multiple type parameters, they may only
 have a single contract.
 
 ```Go
-contract viaStrings(To, From) {
+contract viaStrings@<To, From> {
 	To   Set(string)
 	From String() string
 }
 
-func SetViaStrings(type To, From viaStrings)(s []From) []To {
+func SetViaStrings@<type To, From viaStrings>(s []From) []To {
 	r := make([]To, len(s))
 	for i, v := range s {
 		r[i].Set(v.String())
@@ -319,7 +319,7 @@ We want more than just generic functions: we also want generic types.
 We suggest that types be extended to take type parameters.
 
 ```Go
-type Vector(type Element) []Element
+type Vector@<type Element> []Element
 ```
 
 A type's parameters are just like a function's type parameters.
@@ -333,7 +333,7 @@ is actually a type.
 This is called _instantiation_.
 
 ```Go
-var v Vector(int)
+var v Vector@<int>
 ```
 
 Parameterized types can have methods.
@@ -341,7 +341,7 @@ The receiver type of a method must list the type parameters.
 They are listed without the `type` keyword or any contract.
 
 ```Go
-func (v *Vector(Element)) Push(x Element) { *v = append(*v, x) }
+func (v *Vector@<Element>) Push(x Element) { *v = append(*v, x) }
 ```
 
 A parameterized type can refer to itself in cases where a type can
@@ -351,14 +351,14 @@ This restriction prevents infinite recursion of type instantiation.
 
 ```Go
 // This is OK.
-type List(type Element) struct {
-	next *List(Element)
+type List@<type Element> struct {
+	next *List@<Element>
 	val  Element
 }
 
 // This type is INVALID.
-type P(type Element1, Element2) struct {
-	F *P(Element2, Element1) // INVALID; must be (Element1, Element2)
+type P@<type Element1, Element2> struct {
+	F *P@<Element2, Element1> // INVALID; must be (Element1, Element2)
 }
 ```
 
@@ -369,9 +369,9 @@ different type arguments.)
 The type parameter of a parameterized type may have contracts.
 
 ```Go
-type StringableVector(type T stringer) []T
+type StringableVector@<type T stringer> []T
 
-func (s StringableVector(T)) String() string {
+func (s StringableVector@<T>) String() string {
 	var sb strings.Builder
 	sb.WriteString("[")
 	for i, v := range s {
@@ -390,12 +390,12 @@ embedded as a field in the struct, the name of the field is the name
 of the type parameter, not the name of the type argument.
 
 ```Go
-type Lockable(type T) struct {
+type Lockable@<type T> struct {
 	T
 	mu sync.Mutex
 }
 
-func (l *Lockable(T)) Get() T {
+func (l *Lockable@<T>) Get() T {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	return l.T
@@ -411,7 +411,7 @@ alias with type parameters that have a contract.
 Type aliases may refer to instantiated types.
 
 ```Go
-type VectorInt = Vector(int)
+type VectorInt = Vector@<int>
 ```
 
 If a type alias refers to a parameterized type, it must provide type
@@ -443,8 +443,8 @@ replaced by the embedded type arguments.
 This contract embeds the contract `stringer` defined earlier.
 
 ```Go
-contract PrintStringer(X) {
-	stringer(X)
+contract PrintStringer@<X> {
+	stringer@<X> //?  X stringer    
 	X Print()
 }
 ```
@@ -452,7 +452,7 @@ contract PrintStringer(X) {
 This is equivalent to
 
 ```Go
-contract PrintStringer(X) {
+contract PrintStringer@<X> {
 	X String() string
 	X Print()
 }
@@ -470,12 +470,12 @@ package compare
 
 // The equal contract describes types that have an Equal method with
 // an argument of the same type as the receiver type.
-contract equal(T) {
+contract equal@<T> {
 	T Equal(T) bool
 }
 
 // Index returns the index of e in s, or -1.
-func Index(type T equal)(s []T, e T) int {
+func Index@<type T equal>(s []T, e T) int {
 	for i, v := range s {
 		// Both e and v are type T, so it's OK to call e.Equal(v).
 		if e.Equal(v) {
@@ -498,7 +498,7 @@ type EqualInt int
 func (a EqualInt) Equal(b EqualInt) bool { return a == b }
 
 func Index(s []EqualInt, e EqualInt) int {
-	return compare.Index(EqualInt)(s, e)
+	return compare.Index@<EqualInt>(s, e)
 }
 ```
 
@@ -528,14 +528,14 @@ like finding the shortest path.
 ```Go
 package graph
 
-contract G(Node, Edge) {
+contract G@<Node, Edge> {
 	Node Edges() []Edge
 	Edge Nodes() (from Node, to Node)
 }
 
-type Graph(type Node, Edge G) struct { ... }
-func New(type Node, Edge G)(nodes []Node) *Graph(Node, Edge) { ... }
-func (g *Graph(Node, Edge)) ShortestPath(from, to Node) []Edge { ... }
+type Graph@<type Node, Edge G> struct { ... }
+func New@<type Node, Edge G>(nodes []Node) *Graph@<Node, Edge> { ... }
+func (g *Graph@<Node, Edge>) ShortestPath(from, to Node) []Edge { ... }
 ```
 
 While at first glance this may look like a typical use of interface
@@ -558,7 +558,7 @@ There are no interface types here, but we can instantiate
 `graph.Graph` using the type arguments `*Vertex` and `*FromTo`:
 
 ```Go
-var g = graph.New(*Vertex, *FromTo)([]*Vertex{ ... })
+var g = graph.New@<*Vertex, *FromTo>([]*Vertex{ ... })
 ```
 
 `*Vertex` and `*FromTo` are not interface types, but when used
@@ -605,7 +605,7 @@ The function passes just `M` to the `stringer` contract, leaving `E`
 as though it had no constraints.
 
 ```Go
-func MapAndPrint(type E, M stringer(M))(s []E, f(E) M) []string {
+func MapAndPrint@<type E, M stringer@<M> >(s []E, f(E) M) []string {
 	r := make([]string, len(s))
 	for i, v := range s {
 		r[i] = f(v).String()
@@ -653,17 +653,17 @@ or stack, and the interface value holds a pointer to that location.
 
 In this design, values of generic types are not boxed.
 For example, let's consider a function that works for any type `T`
-with a `Set(string)` method that initializes the value based on a
+with a `Set@<string>` method that initializes the value based on a
 string, and uses it to convert a slice of `string` to a slice of `T`.
 
 ```Go
 package from
 
-contract setter(T) {
+contract setter@<T> {
 	T Set(string) error
 }
 
-func Strings(type T setter)(s []string) ([]T, error) {
+func Strings@<type T setter>(s []string) ([]T, error) {
 	ret := make([]T, len(s))
 	for i, v := range s {
 		if err := ret[i].Set(v); err != nil {
@@ -686,7 +686,7 @@ func (p *Settable) Set(s string) (err error) {
 
 func F() {
 	// The type of nums is []Settable.
-	nums, err := from.Strings(Settable)([]string{"1", "2"})
+	nums, err := from.Strings@<Settable>([]string{"1", "2"})
 	if err != nil { ... }
 	// Settable can be converted directly to int.
 	// This will set first to 1.
@@ -708,7 +708,7 @@ expected types as components.
 ```Go
 package pair
 
-type Pair(type carT, cdrT) struct {
+type Pair@<type carT, cdrT> struct {
 	f1 carT
 	f2 cdrT
 }
@@ -716,7 +716,7 @@ type Pair(type carT, cdrT) struct {
 
 When this is instantiated, the fields will not be boxed, and no
 unexpected memory allocations will occur.
-The type `pair.Pair(int, string)` is convertible to `struct { f1 int;
+The type `pair.Pair@<int, string>` is convertible to `struct { f1 int;
 f2 string }`.
 
 ### Function argument type inference
@@ -728,7 +728,7 @@ arguments.
 Go back to the example of a call to our simple `Print` function:
 
 ```Go
-	Print(int)([]int{1, 2, 3})
+	Print@<int>([]int{1, 2, 3})
 ```
 
 The type argument `int` in the function call can be inferred from the
@@ -789,14 +789,14 @@ In this example
 
 we compare `[]int` with `[]T`, match `T` with `int`, and we are done.
 The single type parameter `T` is `int`, so we infer that the call
-to `Print` is really a call to `Print(int)`.
+to `Print` is really a call to `Print@<int>`.
 
 For a more complex example, consider
 
 ```Go
 package transform
 
-func Slice(type From, To)(s []From, f func(From) To) []To {
+func Slice@<type From, To>(s []From, f func(From) To) []To {
 	r := make([]To, len(s))
 	for i, v := range s {
 		r[i] = f(v)
@@ -826,7 +826,7 @@ To see the untyped constant rule in effect, consider
 ```Go
 package pair
 
-func New(type T)(f1, f2 T) *Pair(T) { ... }
+func New@<type T>(f1, f2 T) *Pair(T) { ... }
 ```
 
 In the call `pair.New(1, 2)` both arguments are untyped constants, so
@@ -835,13 +835,13 @@ There is nothing to unify.
 We still have two untyped constants after the first pass.
 Both are set to their default type, `int`.
 The second run of the type unification pass unifies `T` with `int`,
-so the final call is `pair.New(int)(1, 2)`.
+so the final call is `pair.New@<int>(1, 2)`.
 
 In the call `pair.New(1, int64(2))` the first argument is an untyped
 constant, so we ignore it in the first pass.
 We then unify `int64` with `T`.
 At this point the type parameter corresponding to the untyped constant
-is fully determined, so the final call is `pair.New(int64)(1, int64(2))`.
+is fully determined, so the final call is `pair.New@<int64>(1, int64(2))`.
 
 In the call `pair.New(1, 2.5)` both arguments are untyped constants,
 so we move on the second pass.
@@ -873,8 +873,8 @@ in code.)
 composite literals of parameterized types.
 
 ```Go
-type Pair(type T) struct { f1, f2 T }
-var V = Pair{1, 2} // inferred as Pair(int){1, 2}
+type Pair@<type T> struct { f1, f2 T }
+var V = Pair{1, 2} // inferred as Pair@<int>{1, 2}
 ```
 
 It's not clear how often this will arise in real code.)
@@ -891,7 +891,7 @@ This will produce an ordinary function value with no type parameters.
 
 ```Go
 // PrintInts will be type func([]int).
-var PrintInts = Print(int)
+var PrintInts = Print@<int>
 ```
 
 ### Type assertions and switches
@@ -915,11 +915,11 @@ For example, this code is permitted even if it is called with a type
 argument that is not an interface type.
 
 ```Go
-contract reader(T) {
+contract reader@<T> {
 	T Read([]byte) (int, error)
 }
 
-func ReadByte(type T reader)(r T) (byte, error) {
+func ReadByte@<type T reader>(r T) (byte, error) {
 	if br, ok := r.(io.ByteReader); ok {
 		return br.ReadByte()
 	}
@@ -931,62 +931,43 @@ func ReadByte(type T reader)(r T) (byte, error) {
 
 ### Instantiating types in type literals
 
-When instantiating a type at the end of a type literal, there is a
+When instantiating a type at the end of a type literal, there is no
 parsing ambiguity.
 
 ```Go
 x1 := []T(v1)
-x2 := []T(v2){}
+x2 := []T@<v2>{}
 ```
 
 In this example, the first case is a type conversion of `v1` to the
 type `[]T`.
-The second case is a composite literal of type `[]T(v2)`, where `T` is
+The second case is a composite literal of type `[]T@<v2>`, where `T` is
 a parameterized type that we are instantiating with the type argument
 `v2`.
-The ambiguity is at the point where we see the open parenthesis: at
-that point the parser doesn't know whether it is seeing a type
-conversion or something like a composite literal.
 
-To avoid this ambiguity, we require that type instantiations at the
-end of a type literal be parenthesized.
-To write a type literal that is a slice of a type instantiation, you
-must write `[](T(v1))`.
-Without those parentheses, `[]T(x)` is parsed as `([]T)(x)`, not as
-`[](T(x))`.
-This only applies to slice, array, map, chan, and func type literals
-ending in a type name.
-Of course it is always possible to use a separate type declaration to
-give a name to the instantiated type, and to use that.
-This is only an issue when the type is instantiated in place.
 
 ### Using parameterized types as unnamed function parameter types
 
 When parsing a parameterized type as an unnamed function parameter
-type, there is a parsing ambiguity.
+type, there is no parsing ambiguity.
 
 ```Go
 var f func(x(T))
 ```
 
-In this example we don't know whether the function has a single
-unnamed parameter of the parameterized type `x(T)`, or whether this is
-a named parameter `x` of the type `(T)` (written with parentheses).
+In this example this is a named parameter `x` of the type `(T)`
+(written with parentheses).
 
-For backward compatibility, we treat this as the latter case: `x(T)`
-is a parameter `x` of type `(T)`.
 In order to describe a function with a single unnamed parameter of
-type `x(T)`, either the parameter must be named, or extra parentheses
-must be used.
+type `x@<T>`, the template syntax is unambigous.
 
 ```Go
-var f1 func(_ x(T))
-var f2 func((x(T)))
+var f func(x@<T>)
 ```
 
 ### Embedding a parameterized interface type
 
-There is a parsing ambiguity when embedding a parameterized interface
+There is no parsing ambiguity when embedding a parameterized interface
 type in another interface type.
 
 ```Go
@@ -995,29 +976,14 @@ type I1(type T) interface {
 }
 
 type I2 interface {
-	I1(int)
+	I1@<int>
 }
 ```
 
-In this example we don't know whether interface `I2` has a single
-method named `I1` that takes an argument of type `int`, or whether we
-are trying to embed the instantiated type `I1(int)` into `I2`.
-
-For backward compatibility, we treat this as the former case: `I2` has
-a method named `I1`.
-
-In order to embed an instantiated interface, we could require that
-extra parentheses be used.
-
-```Go
-type I2 interface {
-	(I1(int))
-}
-```
+In this example we are embedding the instantiated type `I1(int)` into `I2`.
 
 This is currently not supported by the language, so this would suggest
-generally extending the language to permit embedded interface types to
-be parenthesized.
+generally extending the language to permit embedded interface types.
 
 ### Reflection
 
@@ -1026,7 +992,7 @@ When a type or function is instantiated, all of the type parameters
 will become ordinary non-generic types.
 The `String` method of a `reflect.Type` value of an instantiated type
 will return the name with the type arguments in parentheses.
-For example, `List(int)`.
+For example, `List@<int>`.
 
 It's impossible for non-generic code to refer to generic code without
 instantiating it, so there is no reflection information for
@@ -1063,11 +1029,11 @@ defined for the pointer to the type parameter.
 For example:
 
 ```Go
-contract setter(T) {
+contract setter@<T> {
 	T Set(string)
 }
 
-func Init(type T setter)(s string) T {
+func Init@<type T setter>(s string) T {
 	var r T
 	r.Set(s)
 	return r
@@ -1085,12 +1051,12 @@ func (p *MyInt) Set(s string) {
 
 // INVALID
 // MyInt does not have a Set method, only *MyInt has one.
-var Init1 = Init(MyInt)("1")
+var Init1 = Init@<MyInt>("1")
 
 // DOES NOT WORK
 // r in Init is type *MyInt with value nil,
 // so the Set method does a nil pointer deference.
-var Init2 = Init(*MyInt)("2")
+var Init2 = Init@<*MyInt>("2")
 ```
 
 The function `Init` cannot be instantiated with the type `MyInt`, as
@@ -1106,7 +1072,7 @@ In order to permit this kind of code, contracts permit specifying that
 for a type parameter `T` the pointer type `*T` has a method.
 
 ```Go
-contract setter(T) {
+contract setter@<T> {
 	*T Set(string)
 }
 ```
@@ -1137,14 +1103,14 @@ For example, this code is valid, even though `LookupAsString` calls
 has a pointer method.
 
 ```Go
-func LookupAsString(type T stringer)(m map[int]T, k int) string {
+func LookupAsString@<type T stringer>(m map[int]T, k int) string {
 	return m[k].String() // Note: calls method on value of type T
 }
 
 type MyInt int
 func (p *MyInt) String() { return strconv.Itoa(int(*p)) }
 func F(m map[int]MyInt) string {
-	return LookupAsString(MyInt)(m, 0)
+	return LookupAsString@<MyInt>(m, 0)
 }
 ```
 
@@ -1169,7 +1135,7 @@ slice of values, where the slice is assumed to be non-empty.
 
 ```Go
 // This function is INVALID.
-func Smallest(type T)(s []T) T {
+func Smallest@<type T>(s []T) T {
 	r := s[0] // panics if slice is empty
 	for _, v := range s[1:] {
 		if v < r { // INVALID
@@ -1216,7 +1182,7 @@ as discussed below.
 For example,
 
 ```Go
-contract SignedInteger(T) {
+contract SignedInteger@<T> {
 	T int, int8, int16, int32, int64
 }
 ```
@@ -1237,7 +1203,7 @@ For the `Smallest` example shown earlier, we could use a contract like
 this:
 
 ```Go
-contract Ordered(T) {
+contract Ordered@<T> {
 	T int, int8, int16, int32, int64,
 		uint, uint8, uint16, uint32, uint64, uintptr,
 		float32, float64,
@@ -1252,7 +1218,7 @@ function and type and contract definitions.)
 Given that contract, we can write this function, now valid:
 
 ```Go
-func Smallest(type T Ordered)(s []T) T {
+func Smallest@<type T Ordered>(s []T) T {
 	r := s[0] // panics if slice is empty
 	for _, v := range s[1:] {
 		if v < r {
@@ -1287,12 +1253,12 @@ semicolon or newline.
 
 ```Go
 // PrintStringer1 and PrintStringer2 are equivalent.
-contract PrintStringer1(T) {
+contract PrintStringer1@<T> {
 	T String() string
 	T Print()
 }
 
-contract PrintStringer2(T) {
+contract PrintStringer2@<T> {
 	T String() string; T Print()
 }
 ```
@@ -1301,7 +1267,7 @@ Normally builtin types will be listed as a disjunction, separated by
 commas.
 
 ```Go
-contract Float(T) {
+contract Float@<T> {
 	T float32, float64
 }
 ```
@@ -1310,7 +1276,7 @@ However, this is not required.
 For example:
 
 ```Go
-contract IOCloser(S) {
+contract IOCloser@<S> {
 	S Read([]byte) (int, error), // note trailing comma
 		Write([]byte) (int, error)
 	S Close() error
@@ -1329,7 +1295,7 @@ It's not clear whether this is useful, but it is valid.
 Another, pedantic, example:
 
 ```Go
-contract unsatisfiable(T) {
+contract unsatisfiable@<T> {
 	T int
 	T uint
 }
@@ -1345,7 +1311,7 @@ A contract may list both builtin types and methods, typically using
 conjunctions and disjunctions as follows:
 
 ```Go
-contract StringableSignedInteger(T) {
+contract StringableSignedInteger@<T> {
 	T int, int8, int16, int32, int64
 	T String() string
 }
@@ -1372,7 +1338,7 @@ A type in a contract need not be a predeclared type; it can be a type
 literal composed of predeclared types.
 
 ```Go
-contract byteseq(T) {
+contract byteseq@<T> {
 	T string, []byte
 }
 ```
@@ -1397,7 +1363,7 @@ The `byteseq` contract permits writing generic functions that work
 for either `string` or `[]byte` types.
 
 ```Go
-func Join(type T byteseq)(a []T, sep T) (ret T) {
+func Join@<type T byteseq>(a []T, sep T) (ret T) {
 	if len(a) == 0 {
 		// Use the result parameter as a zero value;
 		// see discussion of zero value below.
@@ -1430,7 +1396,7 @@ The first type parameter is required to be a slice of the second.
 There are no constraints on the second type parameter.
 
 ```Go
-contract Slice(S, Element) {
+contract Slice@<S, Element> {
 	S []Element
 }
 ```
@@ -1439,7 +1405,7 @@ We can use the `Slice` contract to define a function that takes an
 argument of a slice type and returns a result of that same type.
 
 ```Go
-func Map(type S, Element Slice)(s S, f func(Element) Element) S {
+func Map@<type S, Element Slice>(s S, f func(Element) Element) S {
 	r := make(S, len(s))
 	for i, v := range s {
 		r[i] = f(v)
@@ -1450,7 +1416,7 @@ func Map(type S, Element Slice)(s S, f func(Element) Element) S {
 type MySlice []int
 
 func DoubleMySlice(s MySlice) MySlice {
-	v := Map(MySlice, int)(s, func(e int) int { return 2 * e })
+	v := Map@<MySlice, int>(s, func(e int) int { return 2 * e })
 	// Here v has type MySlice, not type []int.
 	return v
 }
@@ -1464,16 +1430,14 @@ Similarly, we would consider extending the type inference rules to
 permit inferring the type `Edge` from the type `Node` in the
 `graph.New` example shown earlier.)
 
-To avoid a parsing ambiguity, when a type literal in a contract refers
-to a parameterized type, extra parentheses are required, so that it is
-not confused with a method.
+A type literal in a contract may refer to a parameterized type.
 
 ```Go
-type M(type T) []T
+type M@<type T> []T
 
-contract C(T) {
+contract C@<T> {
 	T M(T)   // T must implement the method M with an argument of type T
-	T (M(T)) // T must be the type M(T)
+	T M@<T> // T must be the type M@<T>
 }
 ```
 
@@ -1500,7 +1464,7 @@ For example, this function may be instantiated with any comparable
 type:
 
 ```Go
-func Index(type T comparable)(s []T, x T) int {
+func Index@<type T comparable>(s []T, x T) int {
 	for i, v := range s {
 		if v == x {
 			return i
@@ -1553,17 +1517,17 @@ are not permitted.
 For example:
 
 ```Go
-contract integer(T) {
+contract integer@<T> {
 	T int, int8, int16, int32, int64,
 		uint, uint8, uint16, uint32, uint64, uintptr
 }
 
-contract integer2(T1, T2) {
-	integer(T1)
-	integer(T2)
+contract integer2@<T1, T2> {
+	integer@<T1>
+	integer@<T2>
 }
 
-func Convert(type To, From integer2)(from From) To {
+func Convert@<type To, From integer2>(from From) To {
 	to := To(from)
 	if From(to) != from {
 		panic("conversion out of range")
@@ -1583,19 +1547,19 @@ if it is permitted with every type accepted by the type parameter's
 contract.
 
 ```Go
-contract integer(T) {
+contract integer@<T> {
 	T int, int8, int16, int32, int64,
 		uint, uint8, uint16, uint32, uint64, uintptr
 }
 
-func Add10(type T integer)(s []T) {
+func Add10@<type T integer>(s []T) {
 	for i, v := range s {
 		s[i] = v + 10 // OK: 10 can convert to any integer type
 	}
 }
 
 // This function is INVALID.
-func Add1024(type T integer)(s []T) {
+func Add1024@<type T integer>(s []T) {
 	for i, v := range s {
 		s[i] = v + 1024 // INVALID: 1024 not permitted by int8/uint8
 	}
@@ -1677,9 +1641,8 @@ types that are similar but not identical, which removes significant
 complexity.
 
 People using generic types will have to pass explicit type arguments.
-The syntax for this is familiar.
-The only change is passing arguments to types rather than only to
-functions.
+The syntax for this is unambiguous from existing syntax to allow the
+reader to distinguish the details of a generic call or type at a glance.
 
 In general, we have tried to avoid surprises in the design.
 Only time will tell whether we succeeded.
@@ -1783,7 +1746,7 @@ supported.
   `Equal` method, or vice-versa.
 * No parameterization on non-type values such as constants.
   This arises most obviously for arrays, where it might sometimes be
-  convenient to write `type Matrix(type n int) [n][n]float64`.
+  convenient to write `type Matrix@<type n int> [n][n]float64`.
   It might also sometimes be useful to specify significant values for
   a container type, such as a default value for elements.
 
@@ -1802,11 +1765,11 @@ For example, consider this implementation of optional values that uses
 pointers:
 
 ```Go
-type Optional(type T) struct {
+type Optional@<type T> struct {
 	p *T
 }
 
-func (o Optional(T)) Val() T {
+func (o Optional@<T>)) Val() T {
 	if o.p != nil {
 		return *o.p
 	}
@@ -1841,21 +1804,38 @@ Some approaches to this are:
 We feel that more experience with this design is needed before
 deciding what, if anything, to do here.
 
-##### Lots of irritating silly parentheses
+##### New @<...> syntax
 
-Calling a function with type parameters requires an additional list of
-type arguments if the type arguments can not be inferred.
-If the function returns a function, and we call that, we get still
-more parentheses.
+The introduction of a new syntax `F@<T>` utiizes `@<` `>` which
+allow for an unambiguous intrepretation of the type parameter lists
+in contracts, genric functions, generic types and generic 
+instantiations. This in turn benefits both the compiler and us
+human readers of code to easily distinguish the generic part of 
+type or function at a glance.
+
+During compilation, the scanner can produce explicit tokens for the
+template type start and end without unbounded lookahead. See
+https://gist.github.com/jboelter/5a7123a7723a72f88627f62ae405038d
+
+An added benefit of an umambiguous syntax allows type-unaware syntax
+highlighters to properly identify the scope of a type parameter list
+and apply appropriate highlighting.
+
+We could achieve the same benefit with `F«T»` given the unique `«` and
+`»` characters, but as noted below a non-ASCII syntax was not desireable.
+An alternative syntax that provides unambiguous tokens can still be considered.
+
+Note that the use of explicit open/close tokens for template type declarations
+would allow `type` to be dropped entirely from `func` and `type` declarations.
 
 ```Go
-	F(int, float64)(x, y)(s)
-```
+func Foo@<T>(t T){}
 
-We experimented with other syntaxes, such as using a colon to separate
-the type arguments from the regular arguments.
-The current design seems to be the nicest, but perhaps something
-better is possible.
+type MyType@<T> {
+	t T
+}
+
+```
 
 ##### Pointer vs. value methods in contracts
 
@@ -1878,7 +1858,7 @@ aggregate type, and to return the same defined type as a result.
 For example, this function will map a function across a slice.
 
 ```Go
-func Map(type Element)(s []Element, f func(Element) Element) []Element {
+func Map@<type Element>(s []Element, f func(Element) Element) []Element {
 	r := make([]Element, len(s))
 	for i, v := range s {
 		r[i] = f(v)
@@ -1916,11 +1896,11 @@ by the type argument.
 Here is an example that shows the difference.
 
 ```Go
-contract Float(F) {
+contract Float@<F> {
 	F float32, float64
 }
 
-func NewtonSqrt(type F Float)(v F) F {
+func NewtonSqrt@<type F Float>(v F) F {
 	var iterations int
 	switch v.(type) {
 	case float32:
@@ -2087,6 +2067,75 @@ More generally, we felt that the square brackets were too intrusive on
 the page and that parentheses were more Go like.
 We will reevaluate this decision as we gain more experience.
 
+##### Why not use the syntax `F(T)`?
+
+Consider:
+
+```Go
+x1 := []T(v1)
+x2 := []T(v2){}
+```
+
+In this example, the first case is a type conversion of `v1` to the
+type `[]T`. The second case is a composite literal of type `[]T(v2)`,
+where `T` is a parameterized type that we are instantiating with the
+type argument `v2`. The ambiguity is at the point where we see the
+open parenthesis: at that point the parser doesn't know whether it 
+is seeing a type conversion or something like a composite literal.
+
+To avoid this ambiguity would require that type instantiations at the
+end of a type literal be parenthesized. To write a type literal that 
+is a slice of a type instantiation, you must write `[](T(v1))`.
+Without those parentheses, `[]T(x)` is parsed as `([]T)(x)`, not as
+`[](T(x))`. This only applies to slice, array, map, chan, and func
+type literals ending in a type name. Of course it is always possible
+to use a separate type declaration to give a name to the instantiated
+type, and to use that. This is an issue when the type is
+instantiated in place.
+
+Consider: 
+
+```Go
+var f func(x(T))
+```
+
+In this example we don't know whether the function has a single
+unnamed parameter of the parameterized type `x(T)`, or whether this is
+a named parameter `x` of the type `(T)` (written with parentheses).
+
+For backward compatibility, we would have to treat this as the latter
+case: `x(T)` is a parameter `x` of type `(T)`. In order to describe a
+function with a single unnamed parameter of type `x(T)`, either the
+parameter must be named, or extra parentheses must be used.
+
+Consider:
+
+```Go
+type I1(type T) interface {
+	M(T)
+}
+
+type I2 interface {
+	I1(int)
+}
+```
+
+In this example we don't know whether interface `I2` has a single
+method named `I1` that takes an argument of type `int`, or whether we
+are trying to embed the instantiated type `I1(int)` into `I2`.
+
+For backward compatibility, we would have to treat this as the former
+case: `I2` has a method named `I1`.
+
+In order to embed an instantiated interface, we could require that
+extra parentheses be used.
+
+```Go
+type I2 interface {
+	(I1(int))
+}
+```
+
 ##### Why not use `F«T»`?
 
 We considered it but we couldn't bring ourselves to require
@@ -2152,23 +2201,23 @@ need for boilerplate definitions in order to use `sort.Sort`.
 With this design, we can add to the sort package as follows:
 
 ```Go
-type orderedSlice(type Elem Ordered) []Elem
+type orderedSlice@<type Elem Ordered> []Elem
 
-func (s orderedSlice(Elem)) Len() int           { return len(s) }
-func (s orderedSlice(Elem)) Less(i, j int) bool { return s[i] < s[j] }
-func (s orderedSlice(Elem)) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s orderedSlice@<Elem>) Len() int           { return len(s) }
+func (s orderedSlice@<Elem>) Less(i, j int) bool { return s[i] < s[j] }
+func (s orderedSlice@<Elem>) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 // OrderedSlice sorts the slice s in ascending order.
 // The elements of s must be ordered using the < operator.
-func OrderedSlice(type Elem Ordered)(s []Elem) {
-	sort.Sort(orderedSlice(Elem)(s))
+func OrderedSlice@<type Elem Ordered>(s []Elem) {
+	sort.Sort(orderedSlice@<Elem>(s))
 }
 ```
 
 Now we can write:
 
 ```Go
-	sort.OrderedSlice(int32)([]int32{3, 5, 2})
+	sort.OrderedSlice@<int32>([]int32{3, 5, 2})
 ```
 
 We can rely on type inference to omit the type argument list:
@@ -2182,18 +2231,18 @@ comparison function, similar to `sort.Slice` but writing the function
 to take values rather than slice indexes.
 
 ```Go
-type sliceFn(type Elem) struct {
+type sliceFn@<type Elem> struct {
 	s []Elem
 	f func(Elem, Elem) bool
 }
 
-func (s sliceFn(Elem)) Len() int           { return len(s.s) }
-func (s sliceFn(Elem)) Less(i, j int) bool { return s.f(s.s[i], s.s[j]) }
-func (s sliceFn(Elem)) Swap(i, j int)      { s.s[i], s.s[j] = s.s[j], s.s[i] }
+func (s sliceFn@<Elem>) Len() int           { return len(s.s) }
+func (s sliceFn@<Elem>) Less(i, j int) bool { return s.f(s.s[i], s.s[j]) }
+func (s sliceFn@<Elem>) Swap(i, j int)      { s.s[i], s.s[j] = s.s[j], s.s[i] }
 
 // SliceFn sorts the slice s according to the function f.
-func SliceFn(type Elem)(s []Elem, f func(Elem, Elem) bool) {
-	Sort(sliceFn(Elem){s, f})
+func SliceFn@<type Elem>(s []Elem, f func(Elem, Elem) bool) {
+	Sort(sliceFn@<Elem>{s, f})
 }
 ```
 
@@ -2214,7 +2263,7 @@ package maps
 
 // Keys returns the keys of the map m.
 // Note that map keys (here called type K) must be comparable.
-func Keys(type K, V comparable(K))(m map[K]V) []K {
+func Keys@<type K, V comparable@<K> >(m map[K]V) []K {
 	r := make([]K, 0, len(m))
 	for k := range m {
 		r = append(r, k)
@@ -2241,7 +2290,7 @@ Lisp, Python, Java, and so forth.
 package slices
 
 // Map turns a []T1 to a []T2 using a mapping function.
-func Map(type T1, T2)(s []T1, f func(T1) T2) []T2 {
+func Map@<type T1, T2>(s []T1, f func(T1) T2) []T2 {
 	r := make([]T2, len(s))
 	for i, v := range s {
 		r[i] = f(v)
@@ -2250,7 +2299,7 @@ func Map(type T1, T2)(s []T1, f func(T1) T2) []T2 {
 }
 
 // Reduce reduces a []T1 to a single value using a reduction function.
-func Reduce(type T1, T2)(s []T1, initializer T2, f func(T2, T1) T2) T2 {
+func Reduce@<type T1, T2>(s []T1, initializer T2, f func(T2, T1) T2) T2 {
 	r := initializer
 	for _, v := range s {
 		r = f(r, v)
@@ -2259,7 +2308,7 @@ func Reduce(type T1, T2)(s []T1, initializer T2, f func(T2, T1) T2) T2 {
 }
 
 // Filter filters values from a slice using a filter function.
-func Filter(type T)(s []T, f func(T) bool) []T {
+func Filter@<type T>(s []T, f func(T) bool) []T {
 	var r []T
 	for _, v := range s {
 		if f(v) {
@@ -2290,30 +2339,30 @@ methods rather than operators like `[]`.
 // Package set implements sets of any type.
 package set
 
-type Set(type Elem comparable) map[Elem]struct{}
+type Set@<type Elem comparable> map[Elem]struct{}
 
-func Make(type Elem comparable)() Set(Elem) {
-	return make(Set(Elem))
+func Make@<type Elem comparable>() Set(Elem) {
+	return make(Set@<Elem>)
 }
 
-func (s Set(Elem)) Add(v Elem) {
+func (s Set@<Elem>) Add(v Elem) {
 	s[v] = struct{}{}
 }
 
-func (s Set(Elem)) Delete(v Elem) {
+func (s Set@<Elem>) Delete(v Elem) {
 	delete(s, v)
 }
 
-func (s Set(Elem)) Contains(v Elem) bool {
+func (s Set@<Elem>) Contains(v Elem) bool {
 	_, ok := s[v]
 	return ok
 }
 
-func (s Set(Elem)) Len() int {
+func (s Set@<Elem>) Len() int {
 	return len(s)
 }
 
-func (s Set(Elem)) Iterate(f func(Elem)) {
+func (s Set@<Elem>) Iterate(f func(Elem)) {
 	for v := range s {
 		f(v)
 	}
@@ -2323,7 +2372,7 @@ func (s Set(Elem)) Iterate(f func(Elem)) {
 Example use:
 
 ```Go
-	s := set.Make(int)
+	s := set.Make@<int>
 	s.Add(1)
 	if s.Contains(2) { panic("unexpected 2") }
 ```
@@ -2352,24 +2401,24 @@ import "runtime"
 //
 // This is a convenient way to exit a goroutine sending values when
 // the receiver stops reading them.
-func Ranger(type T)() (*Sender(T), *Receiver(T)) {
+func Ranger@<type T>() (*Sender(T), *Receiver(T)) {
 	c := make(chan T)
 	d := make(chan bool)
-	s := &Sender(T){values: c, done: d}
-	r := &Receiver(T){values: c, done: d}
+	s := &Sender@<T>{values: c, done: d}
+	r := &Receiver@<T>{values: c, done: d}
 	runtime.SetFinalizer(r, r.finalize)
 	return s, r
 }
 
 // A sender is used to send values to a Receiver.
-type Sender(type T) struct {
+type Sender@<type T> struct {
 	values chan<- T
 	done <-chan bool
 }
 
 // Send sends a value to the receiver. It returns whether any more
 // values may be sent; if it returns false the value was not sent.
-func (s *Sender(T)) Send(v T) bool {
+func (s *Sender@<T>) Send(v T) bool {
 	select {
 	case s.values <- v:
 		return true
@@ -2380,12 +2429,12 @@ func (s *Sender(T)) Send(v T) bool {
 
 // Close tells the receiver that no more values will arrive.
 // After Close is called, the Sender may no longer be used.
-func (s *Sender(T)) Close() {
+func (s *Sender@<T>) Close() {
 	close(s.values)
 }
 
 // A Receiver receives values from a Sender.
-type Receiver(type T) struct {
+type Receiver@<type T> struct {
 	values <-chan T
 	done chan<- bool
 }
@@ -2393,13 +2442,13 @@ type Receiver(type T) struct {
 // Next returns the next value from the channel. The bool result
 // indicates whether the value is valid, or whether the Sender has
 // been closed and no more values will be received.
-func (r *Receiver(T)) Next() (T, bool) {
+func (r *Receiver@<T>) Next() (T, bool) {
 	v, ok := <-r.values
 	return v, ok
 }
 
 // finalize is a finalizer for the receiver.
-func (r *Receiver(T)) finalize() {
+func (r *Receiver@<T>) finalize() {
 	close(r.done)
 }
 ```
@@ -2431,27 +2480,27 @@ package orderedmap
 import "chans"
 
 // Map is an ordered map.
-type Map(type K, V) struct {
+type Map@<type K, V> struct {
 	root    *node(K, V)
 	compare func(K, K) int
 }
 
 // node is the type of a node in the binary tree.
-type node(type K, V) struct {
+type node@<type K, V> struct {
 	key         K
 	val         V
-	left, right *node(K, V)
+	left, right *node@<K, V>
 }
 
 // New returns a new map.
-func New(type K, V)(compare func(K, K) int) *Map(K, V) {
-	return &Map(K, V){compare: compare}
+func New@<type K, V>(compare func(K, K) int) *Map(K, V) {
+	return &Map@<K, V>{compare: compare}
 }
 
 // find looks up key in the map, and returns either a pointer
 // to the node holding key, or a pointer to the location where
 // such a node would go.
-func (m *Map(K, V)) find(key K) **node(K, V) {
+func (m *Map@<K, V>) find(key K) **node@<K, V> {
 	pn := &m.root
 	for *pn != nil {
 		switch cmp := m.compare(key, (*pn).key); {
@@ -2469,19 +2518,19 @@ func (m *Map(K, V)) find(key K) **node(K, V) {
 // Insert inserts a new key/value into the map.
 // If the key is already present, the value is replaced.
 // Returns true if this is a new key, false if already present.
-func (m *Map(K, V)) Insert(key K, val V) bool {
+func (m *Map@<K, V>) Insert(key K, val V) bool {
 	pn := m.find(key)
 	if *pn != nil {
 		(*pn).val = val
 		return false
 	}
-	*pn = &node(K, V){key: key, val: val}
+	*pn = &node@<K, V>{key: key, val: val}
 	return true
 }
 
 // Find returns the value associated with a key, or zero if not present.
 // The found result reports whether the key was found.
-func (m *Map(K, V)) Find(key K) (V, bool) {
+func (m *Map@<K, V>) Find(key K) (V, bool) {
 	pn := m.find(key)
 	if *pn == nil {
 		var zero V // see the discussion of zero values, above
@@ -2491,23 +2540,23 @@ func (m *Map(K, V)) Find(key K) (V, bool) {
 }
 
 // keyValue is a pair of key and value used when iterating.
-type keyValue(type K, V) struct {
+type keyValue@<type K, V> struct {
 	key K
 	val V
 }
 
 // InOrder returns an iterator that does an in-order traversal of the map.
-func (m *Map(K, V)) InOrder() *Iterator(K, V) {
-	sender, receiver := chans.Ranger(keyValue(K, V))()
-	var f func(*node(K, V)) bool
-	f = func(n *node(K, V)) bool {
+func (m *Map@<K, V>) InOrder() *Iterator(K, V) {
+	sender, receiver := chans.Ranger@<keyValue@<K, V> >()
+	var f func(*node@<K, V>) bool
+	f = func(n *node@<K, V>) bool {
 		if n == nil {
 			return true
 		}
 		// Stop sending values if sender.Send returns false,
 		// meaning that nothing is listening at the receiver end.
 		return f(n.left) &&
-			sender.Send(keyValue(K, V){n.key, n.val}) &&
+			sender.Send(keyValue@<K, V>{n.key, n.val}) &&
 			f(n.right)
 	}
 	go func() {
@@ -2518,13 +2567,13 @@ func (m *Map(K, V)) InOrder() *Iterator(K, V) {
 }
 
 // Iterator is used to iterate over the map.
-type Iterator(type K, V) struct {
-	r *chans.Receiver(keyValue(K, V))
+type Iterator@<type K, V> struct {
+	r *chans.Receiver@<keyValue@<K, V> >
 }
 
 // Next returns the next key and value pair, and a boolean indicating
 // whether they are valid or whether we have reached the end.
-func (it *Iterator(K, V)) Next() (K, V, bool) {
+func (it *Iterator@<K, V>) Next() (K, V, bool) {
 	keyval, ok := it.r.Next()
 	if !ok {
 		var zerok K
@@ -2540,7 +2589,7 @@ This is what it looks like to use this package:
 ```Go
 import "container/orderedmap"
 
-var m = orderedmap.New(string, string)(strings.Compare)
+var m = orderedmap.New@<string, string>(strings.Compare)
 
 func Add(a, b string) {
 	m.Insert(a, b)
@@ -2570,7 +2619,7 @@ Instead, we could write something like this:
 package slices
 
 // Append adds values to the end of a slice, returning a new slice.
-func Append(type T)(s []T, t ...T) []T {
+func Append@<type T>(s []T, t ...T) []T {
 	lens := len(s)
 	tot := lens + len(t)
 	if tot <= cap(s) {
@@ -2591,7 +2640,7 @@ can write that one too:
 ```Go
 // Copy copies values from t to s, stopping when either slice is
 // full, returning the number of values copied.
-func Copy(type T)(s, t []T) int {
+func Copy@<type T>(s, t []T) int {
 	i := 0
 	for ; i < len(s) && i < len(t); i++ {
 		s[i] = t[i]
@@ -2645,12 +2694,12 @@ package metrics
 
 import "sync"
 
-type Metric1(type T comparable) struct {
+type Metric1@<type T comparable> struct {
 	mu sync.Mutex
 	m  map[T]int
 }
 
-func (m *Metric1(T)) Add(v T) {
+func (m *Metric1@<T>) Add(v T) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.m == nil {
@@ -2659,34 +2708,34 @@ func (m *Metric1(T)) Add(v T) {
 	m[v]++
 }
 
-contract cmp2(T1, T2) {
-	comparable(T1)
-	comparable(T2)
+contract cmp2@<T1, T2> {
+	comparable@<T1>
+	comparable@<T2>
 }
 
-type key2(type T1, T2 cmp2) struct {
+type key2@<type T1, T2 cmp2> struct {
 	f1 T1
 	f2 T2
 }
 
-type Metric2(type T1, T2 cmp2) struct {
+type Metric2@<type T1, T2 cmp2> struct {
 	mu sync.Mutex
-	m  map[key2(T1, T2)]int
+	m  map[key2@<T1, T2>]int
 }
 
-func (m *Metric2(T1, T2)) Add(v1 T1, v2 T2) {
+func (m *Metric2@<T1, T2>) Add(v1 T1, v2 T2) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.m == nil {
-		m.m = make(map[key2(T1, T2)]int)
+		m.m = make(map[key2@<T1, T2>]int)
 	}
-	m[key(T1, T2){v1, v2}]++
+	m[key@<T1, T2>{v1, v2}]++
 }
 
-contract cmp3(T1, T2, T3) {
-	comparable(T1)
-	comparable(T2)
-	comparable(T3)
+contract cmp3@<T1, T2, T3> {
+	comparable@<T1>
+	comparable@<T2>
+	comparable@<T3>
 }
 
 type key3(type T1, T2, T3 cmp3) struct {
@@ -2695,18 +2744,18 @@ type key3(type T1, T2, T3 cmp3) struct {
 	f3 T3
 }
 
-type Metric3(type T1, T2, T3 cmp3) struct {
+type Metric3@<type T1, T2, T3 cmp3> struct {
 	mu sync.Mutex
-	m  map[key3(T1, T2, T3)]int
+	m  map[key3@<T1, T2, T3>]int
 }
 
-func (m *Metric3(T1, T2, T3)) Add(v1 T1, v2 T2, v3 T3) {
+func (m *Metric3@<T1, T2, T3>) Add(v1 T1, v2 T2, v3 T3) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.m == nil {
 		m.m = make(map[key3]int)
 	}
-	m[key(T1, T2, T3){v1, v2, v3}]++
+	m[key@<T1, T2, T3>{v1, v2, v3}]++
 }
 
 // Repeat for the maximum number of permitted arguments.
@@ -2717,7 +2766,7 @@ Using this package looks like this:
 ```Go
 import "metrics"
 
-var m = metrics.Metric2(string, int){}
+var m = metrics.Metric2@<string, int>{}
 
 func F(s string, i int) {
 	m.Add(s, i) // this call is type checked at compile time
@@ -2740,40 +2789,40 @@ same parameterized type.
 package list
 
 // List is a linked list.
-type List(type T) struct {
-	head, tail *element(T)
+type List@<type T> struct {
+	head, tail *element@<T>
 }
 
 // An element is an entry in a linked list.
-type element(type T) struct {
-	next *element(T)
+type element@<type T> struct {
+	next *element@<T>
 	val  T
 }
 
 // Push pushes an element to the end of the list.
-func (lst *List(T)) Push(v T) {
+func (lst *List@<T>) Push(v T) {
 	if lst.tail == nil {
-		lst.head = &element(T){val: v}
+		lst.head = &element@<T>{val: v}
 		lst.tail = lst.head
 	} else {
-		lst.tail.next = &element(T){val: v }
+		lst.tail.next = &element@<T>{val: v }
 		lst.tail = lst.tail.next
 	}
 }
 
 // Iterator ranges over a list.
-type Iterator(type T) struct {
-	next **element(T)
+type Iterator@<type T> struct {
+	next **element@<T>
 }
 
 // Range returns an Iterator starting at the head of the list.
-func (lst *List(T)) Range() *Iterator(T) {
-	return Iterator(T){next: &lst.head}
+func (lst *List@<T>) Range() *Iterator@<T> {
+	return Iterator@<T>{next: &lst.head}
 }
 
 // Next advances the iterator.
 // It returns whether there are more elements.
-func (it *Iterator(T)) Next() bool {
+func (it *Iterator@<T>)) Next() bool {
 	if *it.next == nil {
 		return false
 	}
@@ -2783,7 +2832,7 @@ func (it *Iterator(T)) Next() bool {
 
 // Val returns the value of the current element.
 // The bool result reports whether the value is valid.
-func (it *Iterator(T)) Val() (T, bool) {
+func (it *Iterator@<T>) Val() (T, bool) {
 	if *it.next == nil {
 		var zero T
 		return zero, false
@@ -2792,8 +2841,8 @@ func (it *Iterator(T)) Val() (T, bool) {
 }
 
 // Transform runs a transform function on a list returning a new list.
-func Transform(type T1, T2)(lst *List(T1), f func(T1) T2) *List(T2) {
-	ret := &List(T2){}
+func Transform@<type T1, T2>(lst *List(T1), f func(T1) T2) *List@<T2>) {
+	ret := &List@<T2>{}
 	it := lst.Range()
 	for {
 		if v, ok := it.Val(); ok {
@@ -2819,30 +2868,30 @@ package to provide a type-safe wrapper around `Context.Value`.
 // Rather than calling Context.Value directly, use Key.Load.
 //
 // The zero value of Key is not ready for use; use NewKey.
-type Key(type V) struct {
+type Key@<type V> struct {
 	name string
 }
 
 // NewKey returns a key used to store values of type V in a Context.
 // Every Key returned is unique, even if the name is reused.
-func NewKey(type V)(name string) *Key {
-	return &Key(V){name: name}
+func NewKey@<type V>(name string) *Key {
+	return &Key@<V>{name: name}
 }
 
 // WithValue returns a new context with v associated with k.
-func (k *Key(V)) WithValue(parent Context, v V) Context {
+func (k *Key@<V>) WithValue(parent Context, v V) Context {
 	return WithValue(parent, k, v)
 }
 
 // Value loads the value associated with k from ctx and reports
 //whether it was successful.
-func (k *Key(V)) Value(ctx Context) (V, bool) {
-	v, present := ctx.Value(k).(V)
-	return v.(V), present
+func (k *Key@<V>) Value(ctx Context) (V, bool) {
+	v, present := ctx.Value(k).@<V>
+	return v.@<V>, present
 }
 
 // String returns the name and expected value type.
-func (k *Key(V)) String() string {
+func (k *Key@<V>) String() string {
 	var v V
 	return fmt.Sprintf("%s(%T)", k.name, v)
 }
@@ -2862,7 +2911,7 @@ var ServerContextKey = &contextKey{"http-server"}
 This could be written instead as
 
 ```Go
-var ServerContextKey = context.NewKey(*Server)("http_server")
+var ServerContextKey = context.NewKey@<*Server>("http_server")
 
 	// used as:
 	ctx := ServerContextKey.WithValue(ctx, srv)
@@ -2881,14 +2930,14 @@ numeric type.
 ```Go
 // Numeric is a contract that matches any numeric type.
 // It would likely be in a contracts package in the standard library.
-contract Numeric(T) {
+contract Numeric@<T> {
 	T int, int8, int16, int32, int64,
 		uint, uint8, uint16, uint32, uint64, uintptr,
 		float32, float64,
 		complex64, complex128
 }
 
-func DotProduct(type T Numeric)(s1, s2 []T) T {
+func DotProduct@<type T Numeric>(s1, s2 []T) T {
 	if len(s1) != len(s2) {
 		panic("DotProduct: slices of unequal length")
 	}
@@ -2914,14 +2963,14 @@ the methods can very based on the kind of type being used.
 
 ```Go
 // NumericAbs matches numeric types with an Abs method.
-contract NumericAbs(T) {
-	Numeric(T)
+contract NumericAbs@<T> {
+	Numeric@<T>
 	T Abs() T
 }
 
 // AbsDifference computes the absolute value of the difference of
 // a and b, where the absolute value is determined by the Abs method.
-func AbsDifference(type T NumericAbs)(a, b T) T {
+func AbsDifference@<type T NumericAbs>(a, b T) T {
 	d := a - b
 	return d.Abs()
 }
@@ -2931,22 +2980,22 @@ We can define an `Abs` method appropriate for different numeric types.
 
 ```Go
 // OrderedNumeric matches numeric types that support the < operator.
-contract OrderedNumeric(T) {
+contract OrderedNumeric@<T> {
 	T int, int8, int16, int32, int64,
 		uint, uint8, uint16, uint32, uint64, uintptr,
 		float32, float64
 }
 
 // Complex matches the two complex types, which do not have a < operator.
-contract Complex(T) {
+contract Complex@<T> {
 	T complex64, complex128
 }
 
 // OrderedAbs is a helper type that defines an Abs method for
 // ordered numeric types.
-type OrderedAbs(type T OrderedNumeric) T
+type OrderedAbs@<type T OrderedNumeric> T
 
-func (a OrderedAbs(T)) Abs() T {
+func (a OrderedAbs@<T>) Abs() T {
 	if a < 0 {
 		return -a
 	}
@@ -2955,9 +3004,9 @@ func (a OrderedAbs(T)) Abs() T {
 
 // ComplexAbs is a helper type that defines an Abs method for
 // complex types.
-type ComplexAbs(type T Complex) T
+type ComplexAbs@<type T Complex> T
 
-func (a ComplexAbs(T)) Abs() T {
+func (a ComplexAbs@<T>) Abs() T {
 	r := float64(real(a))
 	i := float64(imag(a))
 	d := math.Sqrt(r * r + i * i)
@@ -2969,12 +3018,12 @@ We can then define functions that do the work for the caller by
 converting to and from the types we just defined.
 
 ```Go
-func OrderedAbsDifference(type T OrderedNumeric)(a, b T) T {
-	return T(AbsDifference(OrderedAbs(T)(a), OrderedAbs(T)(b)))
+func OrderedAbsDifference@<type T OrderedNumeric>(a, b T) T {
+	return T(AbsDifference(OrderedAbs@<T>(a), OrderedAbs@<T>(b)))
 }
 
 func ComplexAbsDifference(type T Complex)(a, b T) T {
-	return T(AbsDifference(ComplexAbs(T)(a), ComplexAbs(T)(b)))
+	return T(AbsDifference(ComplexAbs@<T>(a), ComplexAbs@<T>(b)))
 }
 ```
 
@@ -2983,7 +3032,7 @@ code like the following:
 
 ```Go
 // This function is INVALID.
-func GeneralAbsDifference(type T Numeric)(a, b T) T {
+func GeneralAbsDifference@<type T Numeric>(a, b T) T {
 	switch a.(type) {
 	case int, int8, int16, int32, int64,
 		uint, uint8, uint16, uint32, uint64, uintptr,
